@@ -54,17 +54,30 @@ export default function DriverSurvey() {
     return answers[q] !== undefined;
   };
 
-  const submitForm = () => {
+  const submitForm = async () => {
     const payload = {
       type: 'driver',
       timestamp: new Date().toISOString(),
       answers: { ...answers, q5: multiAnswers['q5'] || [], q7: q7Text }
     };
 
-    const existingStr = localStorage.getItem('ridesmash_driver');
-    const existing = existingStr ? JSON.parse(existingStr) : [];
-    existing.push(payload);
-    localStorage.setItem('ridesmash_driver', JSON.stringify(existing));
+    try {
+      const res = await fetch('/api/survey/driver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        console.error('Driver survey API error:', await res.text());
+      }
+    } catch (err) {
+
+      console.error('Driver survey fetch failed, falling back to localStorage:', err);
+      const existingStr = localStorage.getItem('ridesmash_driver');
+      const existing = existingStr ? JSON.parse(existingStr) : [];
+      existing.push(payload);
+      localStorage.setItem('ridesmash_driver', JSON.stringify(existing));
+    }
 
     setDone(true);
   };
@@ -125,8 +138,8 @@ export default function DriverSurvey() {
           <span className="font-syne text-[14px] font-bold text-green">{progressPct}%</span>
         </div>
         <div className="w-full h-[5px] bg-border-green rounded-full mb-8 overflow-hidden">
-          <div 
-            className="h-full bg-gradient-to-r from-green-mid to-green-dark rounded-full transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)]" 
+          <div
+            className="h-full bg-gradient-to-r from-green-mid to-green-dark rounded-full transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)]"
             style={{ width: `${progressPct}%` }}
           ></div>
         </div>

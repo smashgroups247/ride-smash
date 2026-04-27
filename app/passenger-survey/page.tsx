@@ -50,17 +50,30 @@ export default function PassengerSurvey() {
     return answers[q] !== undefined;
   };
 
-  const submitForm = () => {
+  const submitForm = async () => {
     const payload = {
       type: 'passenger',
       timestamp: new Date().toISOString(),
       answers: { ...answers, q4: multiAnswers['q4'] || [], q7: q7Text }
     };
 
-    const existingStr = localStorage.getItem('ridesmash_passenger');
-    const existing = existingStr ? JSON.parse(existingStr) : [];
-    existing.push(payload);
-    localStorage.setItem('ridesmash_passenger', JSON.stringify(existing));
+    try {
+      const res = await fetch('/api/survey/passenger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        console.error('Passenger survey API error:', await res.text());
+      }
+    } catch (err) {
+      // Network failure — fall back to localStorage so the UX is unaffected
+      console.error('Passenger survey fetch failed, falling back to localStorage:', err);
+      const existingStr = localStorage.getItem('ridesmash_passenger');
+      const existing = existingStr ? JSON.parse(existingStr) : [];
+      existing.push(payload);
+      localStorage.setItem('ridesmash_passenger', JSON.stringify(existing));
+    }
 
     setDone(true);
   };

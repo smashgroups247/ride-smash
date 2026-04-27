@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { signOut } from 'next-auth/react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -63,16 +64,32 @@ function shortLabel(str: string, max = 28) {
 export default function Dashboard() {
   const [view, setView] = useState('overview');
   const [data, setData] = useState<{ driver: any[], passenger: any[], all: any[] }>({ driver: [], passenger: [], all: [] });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const driver = JSON.parse(localStorage.getItem('ridesmash_driver') || '[]');
-    const passenger = JSON.parse(localStorage.getItem('ridesmash_passenger') || '[]');
-    setData({ driver, passenger, all: [...driver, ...passenger] });
+    const fetchResults = async () => {
+      try {
+        const res = await fetch('/api/survey/results');
+        if (!res.ok) throw new Error('Failed to fetch results');
+        const json = await res.json();
+        const driver = json.driver ?? [];
+        const passenger = json.passenger ?? [];
+        setData({ driver, passenger, all: [...driver, ...passenger] });
+      } catch (err) {
+        console.error('Dashboard fetch error:', err);
+        // Fallback: read from localStorage if API is unreachable
+        const driver = JSON.parse(localStorage.getItem('ridesmash_driver') || '[]');
+        const passenger = JSON.parse(localStorage.getItem('ridesmash_passenger') || '[]');
+        setData({ driver, passenger, all: [...driver, ...passenger] });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchResults();
   }, []);
 
   const clearData = () => {
-    localStorage.removeItem('ridesmash_driver');
-    localStorage.removeItem('ridesmash_passenger');
+
     setData({ driver: [], passenger: [], all: [] });
   };
 
@@ -166,6 +183,14 @@ export default function Dashboard() {
     }
   });
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg-gray font-dm text-text-faint text-[14px]">
+        Loading survey data…
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen font-dm bg-bg-gray text-text-main">
       {/* Sidebar */}
@@ -186,8 +211,16 @@ export default function Dashboard() {
         <button className={`flex items-center gap-2.5 py-2.5 px-6 text-[13px] font-medium cursor-pointer rounded-none transition-all duration-150 border-none bg-transparent w-full text-left ${view === 'freetext' ? 'bg-green-light text-green-dark font-semibold' : 'text-text-muted hover:bg-bg-gray hover:text-text-main'}`} onClick={() => setView('freetext')}>
           <div className="w-2 h-2 rounded-full shrink-0 bg-text-faint"></div> Open feedback
         </button>
-        <div className="mt-auto pt-5 px-6 border-t border-border-gray text-[12px] text-text-faint leading-[1.6]">
-          Ridesmash v2 Research<br />Survey Dashboard
+        <div className="mt-auto pt-5 px-6 border-t border-border-gray">
+          <div className="text-[12px] text-text-faint leading-[1.6] mb-3">
+            Ridesmash v2 Research<br />Survey Dashboard
+          </div>
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="w-full text-left text-[12px] font-medium text-text-muted hover:text-red-500 transition-colors duration-150 cursor-pointer bg-transparent border-none p-0"
+          >
+            ← Sign out
+          </button>
         </div>
       </aside>
 
@@ -195,7 +228,7 @@ export default function Dashboard() {
       <main className="md:ml-[220px] flex-1 p-5 md:p-8 min-h-screen w-full overflow-hidden">
         {/* Mobile Navigation (Simple Select) */}
         <div className="md:hidden mb-6">
-          <select 
+          <select
             className="w-full p-3 border border-border-gray rounded-lg bg-surface text-text-main font-dm"
             value={view}
             onChange={(e) => setView(e.target.value)}
